@@ -7,87 +7,102 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAXTIMINGS 85
-int dht22_dat[5] = {0,0,0,0,0};
+#define MAX_TIMINGS 85
+int data[5] = {0, 0, 0, 0, 0};
 
-uint8_t sizecvt(const int read)
+int dht22_setup()
 {
-    /* digitalRead() and friends from wiringpi are defined as returning a value
-       < 256. However, they are returned as int() types. This is a safety function */
-
-    if (read > 255 || read < 0)
-    {
-        printf("Invalid data from wiringPi library\n");
-        exit(EXIT_FAILURE);
-    }
-    return (uint8_t)read;
-}
-
-int dht22_setup() {
     return wiringPiSetup();
 }
 
-int dht22_read(int pin, int* humidity, int* temperature)
+int dht22_read(int pin, float *humidity, float *temperature)
 {
+    delay(2000);
+
     uint8_t laststate = HIGH;
     uint8_t counter = 0;
     uint8_t j = 0, i;
 
-    dht22_dat[0] = dht22_dat[1] = dht22_dat[2] = dht22_dat[3] = dht22_dat[4] = 0;
+    data[0] = data[1] = data[2] = data[3] = data[4] = 0;
 
-    // pull pin down for 18 milliseconds
+    /* pull pin down for 18 milliseconds */
     pinMode(pin, OUTPUT);
     digitalWrite(pin, LOW);
     delay(18);
 
-    // then pull it up for 40 microseconds
-    digitalWrite(pin, HIGH);
-    delayMicroseconds(40);
-
-	// prepare to read the pin
+    /* prepare to read the pin */
     pinMode(pin, INPUT);
 
-    // detect change and read data
-    for ( i=0; i< MAXTIMINGS; i++)
-	{
+    /* detect change and read data */
+    for (i = 0; i < MAX_TIMINGS; i++)
+    {
         counter = 0;
-        while (sizecvt(digitalRead(pin)) == laststate)
-		{
+        while (digitalRead(pin) == laststate)
+        {
             counter++;
             delayMicroseconds(1);
             if (counter == 255)
-			{
+            {
                 break;
             }
         }
-        laststate = sizecvt(digitalRead(pin));
 
-        if (counter == 255) break;
+        laststate = digitalRead(pin);
 
-        // ignore first 3 transitions
-        if ((i >= 4) && (i%2 == 0))
-		{
-            // shove each bit into the storage bytes
-            dht22_dat[j/8] <<= 1;
+        if (counter == 255)
+        {
+            printf("breaking ...\n");
+            break;
+        }
+
+        /* ignore first 3 transitions */
+        if ((i >= 4) && (i % 2 == 0))
+        {
+            /* shove each bit into the storage bytes */
+            data[j / 8] <<= 1;
             if (counter > 16)
-                dht22_dat[j/8] |= 1;
+                data[j / 8] |= 1;
             j++;
         }
     }
 
-    // check we read 40 bits (8bit x 5 ) + verify checksum in the last byte
-    // print it out if data is good
-    if ((j >= 40) && (dht22_dat[4] == ((dht22_dat[0] + dht22_dat[1] + dht22_dat[2] + dht22_dat[3]) & 0xFF)) )
-	{
-		*humidity = dht22_dat[0] * 256 + dht22_dat[1];
-		*temperature = (dht22_dat[2] & 0x7F)* 256 + dht22_dat[3];
-        if ((dht22_dat[2] & 0x80) != 0)
-			*temperature *= -1;
+    printf("j = %d\n", j);
 
-		return 1;
+    /*
+	 * check we read 40 bits (8bit x 5 ) + verify checksum in the last byte
+	 * print it out if data is good
+	 */
+    if ((j >= 40) &&
+        (data[4] == ((data[0] + data[1] + data[2] + data[3]) & 0xFF)))
+    {
+        float h = (float)((data[0] << 8) + data[1]) / 10;
+
+        if (h > 100)
+        {
+            h = data[0]; // for DHT11
+        }
+
+        float c = (float)(((data[2] & 0x7F) << 8) + data[3]) / 10;
+
+        if (c > 125)
+        {
+            c = data[2]; // for DHT11
+        }
+
+        if (data[2] & 0x80)
+        {
+            c = -c;
+        }
+
+        *humidity = h;
+        *temperature = c;
+
+        printf("Humidity = %.1f %% Temperature = %.1f *C\n", h, c);
+        return 1;
     }
     else
     {
+        printf("Data not good, skip\n");
         return 0;
     }
 }
