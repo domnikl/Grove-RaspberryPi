@@ -25,6 +25,8 @@ int main()
         printf("status: %d\n", status);
         printf("humidity: %.2f\n", humidity);
         printf("temperature: %.2f\n", temperature);
+
+        sleep(2);
     }
 
     return 0;

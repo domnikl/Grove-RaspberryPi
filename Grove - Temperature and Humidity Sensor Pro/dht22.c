@@ -17,8 +17,6 @@ int dht22_setup()
 
 int dht22_read(int pin, float *humidity, float *temperature)
 {
-    delay(2000);
-
     uint8_t laststate = HIGH;
     uint8_t counter = 0;
     uint8_t j = 0, i;
@@ -51,7 +49,6 @@ int dht22_read(int pin, float *humidity, float *temperature)
 
         if (counter == 255)
         {
-            printf("breaking ...\n");
             break;
         }
 
@@ -65,8 +62,6 @@ int dht22_read(int pin, float *humidity, float *temperature)
             j++;
         }
     }
-
-    printf("j = %d\n", j);
 
     /*
 	 * check we read 40 bits (8bit x 5 ) + verify checksum in the last byte
@@ -97,12 +92,10 @@ int dht22_read(int pin, float *humidity, float *temperature)
         *humidity = h;
         *temperature = c;
 
-        printf("Humidity = %.1f %% Temperature = %.1f *C\n", h, c);
         return 1;
     }
     else
     {
-        printf("Data not good, skip\n");
         return 0;
     }
 }
